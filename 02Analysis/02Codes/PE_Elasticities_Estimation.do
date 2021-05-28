@@ -17,14 +17,15 @@ macro drop _all
 graph drop _all
 timer clear
 
+*Just adding a comment to test Git tracking
 
 local projdir "D:\07 Trade Policy Analysis tool"         // central directory
 local builddir "`projdir'\01Build"                        // high-level directory for Building the data
 local anlysdir "`projdir'\02Analysis"                     // high-level directory for Analysis proper
 
-local grav_exdist contiguity common_language colony_ever agree_fta agree_cu member_eu_joint       //set desired gravity variables
-                                                              ***See available variables here: https://www.usitc.gov/data/gravity/dynamic_gravity_technical_documentation_v1_00_1.pdf
-                                                                                        
+local grav_exdist contiguity common_language colony_ever agree_fta      //set desired gravity variables
+local plcy agree_fta agree_cu member_eu_joint                          //See available variables here: https://www.usitc.gov/data/gravity/dynamic_gravity_technical_documentation_v1_00_1.pdf
+                                                                                       
 *==============Generate repositories for elasticities and fixed effects from PPML estimation===============*
 foreach file in Elast FE{
 foreach spec in FE GC{
@@ -67,7 +68,7 @@ egen imex	= group(iso3_d iso3_o)
 
 *A. PPML estimation w/ Gravity variables + Imp-time and Exp-time FEs
 timer on 1
-cap ppmlhdfe trade ln_dist `grav_exdist' ln_tar, absorb(exp_time imp_time,savefe) vce(cluster imex) tol(1.0e-06) 
+cap ppmlhdfe trade ln_dist `grav_exdist' `plcy' ln_tar, absorb(exp_time imp_time,savefe) vce(cluster imex)
 timer off 1
 di `x'
 timer list 1
@@ -75,19 +76,19 @@ sca def time = r(t1)
 cap gen cons = _b[_cons]
 cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "`anlysdir'\04Temp\Temp_FE_GC_`x'.csv",comma        
 save "`anlysdir'\04Temp\Temp_FE_GC", replace emptyok
-cap regsave ln_dist `grav_exdist' ln_tar using "`anlysdir'\04Temp\Temp_Elast_GC", tstat pval ci level(95) addlabel(itpd_id, `x', time, `=scalar(time)') append	
+cap regsave ln_dist `grav_exdist' `plcy' ln_tar using "`anlysdir'\04Temp\Temp_Elast_GC", tstat pval ci level(95) addlabel(itpd_id, `x', time, `=scalar(time)') append	
 
 
 *B. PPML estimation w/ Complete set of FEs
 timer on 2
-cap ppmlhdfe trade agree_fta agree_cu member_eu_joint ln_tar,absorb(exp_time imp_time imex,savefe) vce(cluster imex) tol(1.0e-06) 
+ppmlhdfe trade `plcy' ln_tar,absorb(exp_time imp_time imex,savefe) vce(cluster imex) 
 timer off 2
 di `x'
 timer list 2
 sca def time = r(t2)
 cap gen cons = _b[_cons]
 cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "`anlysdir'\04Temp\Temp_FE_FE_`x'.csv",comma        
-cap regsave agree_fta agree_cu member_eu_joint  ln_tar using "`anlysdir'\04Temp\Temp_Elast_FE", tstat pval ci level(95) addlabel(itpd_id, `x', time, `=scalar(time)') append	
+cap regsave `plcy' ln_tar using "`anlysdir'\04Temp\Temp_Elast_FE", tstat pval ci level(95) addlabel(itpd_id, `x', time, `=scalar(time)') append	
 } 
 
 
