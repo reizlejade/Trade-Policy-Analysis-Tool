@@ -24,7 +24,7 @@ local builddir "`projdir'\01Build"                        // high-level director
 local anlysdir "`projdir'\02Analysis"                     // high-level directory for Analysis proper
 
 local grav_exdist contiguity common_language colony_ever agree_fta      //set desired gravity variables
-local plcy agree_fta agree_cu member_eu_joint                          //See available variables here: https://www.usitc.gov/data/gravity/dynamic_gravity_technical_documentation_v1_00_1.pdf
+local plcy agree_fta member_eu_joint                          //See available variables here: https://www.usitc.gov/data/gravity/dynamic_gravity_technical_documentation_v1_00_1.pdf
                                                                                        
 *==============Generate repositories for elasticities and fixed effects from PPML estimation===============*
 foreach file in Elast FE{
@@ -74,7 +74,7 @@ di `x'
 timer list 1
 sca def time = r(t1)
 cap gen cons = _b[_cons]
-cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "`anlysdir'\04Temp\Temp_FE_GC_`x'.csv",comma        
+*cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "`anlysdir'\04Temp\Temp_FE_GC_`x'.csv",comma        
 save "`anlysdir'\04Temp\Temp_FE_GC", replace emptyok
 cap regsave ln_dist `grav_exdist' `plcy' ln_tar using "`anlysdir'\04Temp\Temp_Elast_GC", tstat pval ci level(95) addlabel(itpd_id, `x', time, `=scalar(time)') append	
 
@@ -87,7 +87,8 @@ di `x'
 timer list 2
 sca def time = r(t2)
 cap gen cons = _b[_cons]
-cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "`anlysdir'\04Temp\Temp_FE_FE_`x'.csv",comma        
+*cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "`anlysdir'\04Temp\Temp_FE_FE_`x'.csv",comma    
+save "`anlysdir'\04Temp\Temp_FE_FE", replace emptyok    
 cap regsave `plcy' ln_tar using "`anlysdir'\04Temp\Temp_Elast_FE", tstat pval ci level(95) addlabel(itpd_id, `x', time, `=scalar(time)') append	
 } 
 
