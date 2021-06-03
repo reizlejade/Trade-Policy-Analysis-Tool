@@ -50,14 +50,12 @@ if "`c(username)'"=="rjcpl" 	global projdir 		"D:/07 Trade Policy Analysis tool"
 global builddir "$projdir/01Build"                 // high-level directory for Building the data
 global anlysdir "$projdir/02Analysis"              // high-level directory for Analysis proper
 
-"$builddir/02Codes
-"$anlysdir
 
 ********************************************************************************
 ****								Run Do Files							****
 ********************************************************************************
 
-* 0 - Generate the HS6 to ITPD sectors mapping
+* 0 - Generate the HS6 to ITPD sectors mapping         //@jules: I am still cleaning this,I will upload as s
 do "$builddir/02Codes/0_HStoITPDmapping.do"
 
 * 1 - Prepare merged trade,gravity and tariff data
@@ -68,7 +66,7 @@ do "$anlysdir/02Codes/1_PE_Elast_Estimation.do"
 
 
 * 3 - Calculate PE and GE effects of counterfactuals
-do "$anlysdir/02Codes/1_PE_Elast_Estimation.do"
+do "$anlysdir/02Codes/2_PE_GE_Counterfactuals.do"    //@jules: still finalizing this as well, doing some unit testing
 
 
 
