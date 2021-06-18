@@ -22,7 +22,7 @@ itpd3-improved on 'itpd' mapping by using CPC classification of products as "bri
 ****						Source: ITPD-E (USITC)        		        	****
 ********************************************************************************
 timer on 1
-fs ITPD_*
+fs ITPD_*.zip
 local f1=`r(files)'
 unzipfile `f1',replace
 
@@ -67,7 +67,7 @@ timer off 2
 ********************************************************************************
 timer on 3
 
-fs bulkdownload*.zip    
+fs bulkdownload1.zip    
 foreach f in `r(files)'{    
 unzipfile "`f'",replace                                         //NOTE: These are large files >4gb which can only be unzipped by Stata 15.1 or newer. 
 }
