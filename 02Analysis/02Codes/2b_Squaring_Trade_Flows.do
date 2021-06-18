@@ -28,6 +28,8 @@ bysort itpd_id iso3_d (year): gen trade_dom_gr_A=100*((trade_dom/trade_dom[_n-1]
 
 *Generate Internal trade growth rate to External trade growth rate ratio
 gen int_to_ext_trade= trade_dom_gr_A/trade_intl_gr_A
+replace int_to_ext_trade=0 if round(trade_intl_gr_A,.0000001)==0    // !!!gets rid of infinite values when denominator is zero!!!
+
 
 *Obtain average of ratio to be applied to extrapolate missing values
 egen avg_int_to_ext_trade=mean(int_to_ext_trade),by(itpd_id iso3_d)
@@ -50,8 +52,12 @@ replace trade_dom_gr_E= 0 if mi(trade_dom_gr_E)
 bysort itpd_id iso3_d (year): gen cmltv_dom_trade_gr=exp(sum(ln(1+trade_dom_gr_E/100)))
 gen trade_dom_E=last_nmval*cmltv_dom_trade_gr
 
+save "$anlysdir/04Temp/dom_trade_check.dta",replace     //  save for vetting extrapolated results
+
+
+*Fill out the missing flows with extrapolated values, otherwise keep actual observations
 gen trade_dom_final=trade_dom
-replace trade_dom_final=trade_dom_E if year>last_nmyr        //keep actual data if available
+replace trade_dom_final=trade_dom_E if year>last_nmyr        
 
 keep if year==`baseyr' &itpd_id<154 
 gen iso3_o=iso3_d
@@ -70,11 +76,11 @@ save "$anlysdir/04Temp/dom_trade.dta",replace
 ***	                       Squaring the Dataset  	       	               	****
 ********************************************************************************
 
-
+clear
 tempfile all_sec
-save `all_sec',replace empty
+save `all_sec',emptyok
 
-*Start with available domestic flows
+*Begin with available domestic flows
 
 forval i=1/153{
 	if inlist(`i',5,8,14,15,17,18,154,155,161,167,168) continue     // sectors without intra-national trade for any given year
@@ -88,14 +94,17 @@ forval i=1/153{
 	save `all_sec',replace
 }
 
+
+
 save "$anlysdir/04Temp/Temp_SqrdData.dta",replace
 
 
 
 
-********************************************************************************
-***	                     Plot domestic flows improvement   	        		****
-********************************************************************************
+////////////////////////////////////////////////////////////////////////////////
+***	                GRAPHS-Plot domestic flows improvement   	       		****
+////////////////////////////////////////////////////////////////////////////////
+
 import excel "D:\07 Trade Policy Analysis tool\02Analysis\03Output\domtrade.xlsx", sheet("Sheet1") clear
 
 ren (A B C) (itpd_id actual_fl drvd_fl)
@@ -108,29 +117,46 @@ gen domflow=0 if actual_fl==0&drvd_fl==0
 replace actual_fl=. if domflow==0
 replace drvd_fl=. if domflow==0
 
-gen broadsec="Agriculture" if itpd_id<27
-replace broadsec="Mining&Energy" if itpd_id>26&itpd_id<34
-replace broadsec="Manufacturing 1" if itpd_id>33&itpd_id<61
-replace broadsec="Manufacturing 2" if itpd_id>60&itpd_id<91
-replace broadsec="Manufacturing 3" if itpd_id>90&itpd_id<121
-replace broadsec="Manufacturing 4" if itpd_id>120&itpd_id<154
+gen broadsec="Agriculture" if itpd_id<=26
+replace broadsec="Mining&Energy" if itpd_id>=27&itpd_id<=33
+replace broadsec="Manufacturing 1" if itpd_id>=34&itpd_id<=60
+replace broadsec="Manufacturing 2" if itpd_id>=61&itpd_id<=90
+replace broadsec="Manufacturing 3" if itpd_id>=91&itpd_id<=120
+replace broadsec="Manufacturing 4" if itpd_id>=121&itpd_id<=153
 
 
 levelsof broadsec,local(bs)
 
 foreach s in `bs'{
-	graph dot actual_fl drvd_fl domflow if broadsec=="`s'" ,over(itpd_id,label(labsize(small))) ///
-	marker(1, msize(small) mcolor(blue)) marker(2, msize(small) mcolor(green)) marker(3, msize(small) mcolor(red) msymbol(x)) title("`s'") legend(label(1 "Actual flows") ///
-	label(2 "Extrapolated flows") label(3 "No domestic flows"))
+graph dot actual_fl drvd_fl domflow if broadsec=="`s'" ,over(itpd_id,label(labsize(small))) ytitle("no.of countries") ///
+marker(1, msize(small) mcolor(blue)) marker(2, msize(small) mcolor(green)) marker(3, msize(small) mcolor(red) msymbol(x)) title("`s'") ///
+legend(label(1 "Actual flows") label(2 "Extrapolated flows") label(3 "No domestic flows"))
 
-	graph export "$anlysdir/03Output/DomesticFlows_`s'.png",replace
+graph export "$anlysdir/03Output/DomesticFlows_`s'.png",replace
 }
 													
 
 
+////////////////////////////////////////////////////////////////////////////////
+***	                GRAPHS-Fit of extrapolated domestic flows  	       		****
+////////////////////////////////////////////////////////////////////////////////
 
 
+use year iso3_d itpd_id trade_dom trade_dom_E if !mi( trade_dom)&year==2016&itpd_id<=153 using "$anlysdir/04Temp/dom_trade_check.dta",clear  
+levelsof itpd_id,local(sec)
 
+foreach s in `sec'{
 
+	use year iso3_d itpd_id trade_dom trade_dom_E if itpd_id==`s'&!mi( trade_dom)&year==2016 using "$anlysdir/04Temp/dom_trade_check.dta",clear  
+	gen diff=abs(trade_dom-trade_dom_E)
+	gen ctry_lab=iso3_d if diff>100      // identify countries w/ large discrepancies ~$1Bn
+	
+	merge m:1 itpd_id using "$anlysdir/01Input/itpd_desc",keep(match) nogen
+	local secname=sector[1] 
+	labvars trade_dom_E trade_dom "predicted domestic trade(USD Mn)" "actual domestic trade (USD Mn)" 
 
+	twoway scatter trade_dom_E trade_dom ,mlab(ctry_lab) || line trade_dom_E trade_dom_E,legend(off) title("`secname'") ytitle() xtitle("actual domestic trade (USD Mn)" )
+	graph export "$anlysdir/03Output/check_domtrade_`s'.png",replace
+
+}
 
