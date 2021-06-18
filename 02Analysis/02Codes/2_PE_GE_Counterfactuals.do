@@ -84,22 +84,23 @@ gen d_flow_`s'=0
 gen d_welfare_`s'=0
 forval i=1/153{
 if inlist(`i',5,8,14,15,17,18,154,155,161,167,168) continue     // sectors without intra-national trade for any given year
-timer on `i'
+timer on 1
 	ge_gravity exp_sec imp_sec trade beta_treatment_`s' if itpd_id==`i', theta(4) gen_w(welfare_`s') gen_X(flow_`s')   
 
 	* Gen trade & welfare impacts 
 	replace d_flow_`s'= flow_`s' - trade if itpd_id==`i'
 	replace d_welfare_`s'= (welfare_`s') * 100 - 100 if itpd_id==`i'	
 	
-timer off `i'
-di `s'+`i'
+timer off 1
+
+di "`s'_`i':" 
+timer list 1
 }
 }
 
-timer list 
-
-keeporder itpd_id iso3_o d_*
-save "$anlysdir/03Output/CFL_results"
+*local currdate: di %tdDNCY daily("$S_DATE", "DMY")          // to keep track when the results are generated
+keeporder itpd_id iso3* d_*
+save "$anlysdir/03Output/CFL_results",replace
 
 
 
