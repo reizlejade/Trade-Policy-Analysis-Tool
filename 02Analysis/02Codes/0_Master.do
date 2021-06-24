@@ -34,6 +34,8 @@ ssc inst gtools
 ssc inst labutil
 ssc inst labutil2
 ssc inst sepscatter
+ssc install rsource
+
 */
 
 ********************************************************************************
@@ -46,17 +48,23 @@ if "`c(username)'"=="..." 		global projdir 		"..."         //@jules: Pls add you
 if "`c(username)'"=="rjcpl" 	global projdir 		"D:/07 Trade Policy Analysis tool"
 
 
-
 *Set 2nd level folders
 global builddir "$projdir/01Build"                 // high-level directory for Building the data
 global anlysdir "$projdir/02Analysis"              // high-level directory for Analysis proper
+
+*Set the R path to be used in building HS to ITPD concordance in 0_HStoITPDmapping.do
+
+if "`c(username)'"=="..." 		global r_folder 		`"..."'         //@jules: Pls add your main R folder here
+if "`c(username)'"=="rjcpl" 	global r_folder 		`"C:/Program Files/R/R-4.0.2/bin/R.exe"'
+
+
 
 
 ********************************************************************************
 ****								Run Do Files							****
 ********************************************************************************
 
-* 0 - Generate the HS6 to ITPD sectors mapping         //@jules: I am still cleaning this,I will upload as s
+* 0 - Generate the HS6 to ITPD sectors mapping         
 do "$builddir/02Codes/0_HStoITPDmapping.do"
 
 * 1 - Prepare merged trade,gravity and tariff data
