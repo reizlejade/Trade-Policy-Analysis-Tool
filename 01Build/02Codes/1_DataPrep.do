@@ -5,16 +5,38 @@
 
 cd "$builddir/01Input"
 
-local itpd itpd3                                         // SET the desired mapping 
+local itpd itpd2                                         // SET the desired mapping 
  
 /*
 itpd- resulted from three-way merging of HS-->FAOSTAT Commodity List (FCL)-->ITPD sector for Agriculture 
 	and HS-->ISIC Rev.4-->ITPD sector for Mining, and Manufacturing
 itpd2-improved on 'itpd' mapping by manually filling out the sectors of unmapped HS based on product
 	description and sectors of nearby products 
-itpd3-improved on 'itpd' mapping by using CPC classification of products as "bridge" to HS and ISIC Rev.4
-	i.e. HS-->CPC-->ISIC Rev.4-->ITPD sector for Mining, and Manufacturing
 */
+
+
+
+********************************************************************************
+****		Converter from ISO numeric to ISO alphabet codes	     		****
+********************************************************************************
+
+*Concordance is needed since trade flow and gravity data are identified by country's iso-alpha code
+*while tariff data are iddentified by country's iso-numeric code
+
+*download excel file tru: http://unstats.un.org/unsd/tradekb/Attachment440.aspx?AttachmentType=1
+import excel "$builddir/01Input/Comtrade Country Code and ISO list.xlsx", sheet("Sheet1") firstrow clear
+keep if EndValidYear=="Now"      //keep current/active codes only
+keeporder CountryCode CountryNameFull CountryNameAbbreviation ISO3digitAlpha
+
+ren (CountryCode CountryNameFull CountryNameAbbreviation ISO3digitAlpha) (ctrycode ctryname_full ctryname iso)
+
+*Adjust for Taiwan since this is identified as 'Other Asia, nes' in COMTRADE nomenclature
+replace iso="TWN" if ctrycode==490    
+replace ctryname="Taipei, China" if ctrycode==490    
+keep if iso!="N/A"
+
+
+save "$builddir/04Temp/iso_codes.dta",replace
 
 
 ********************************************************************************
@@ -110,10 +132,10 @@ ren `itpd' itpd_id
 
 *Converting ISO numeric to ISO 3-letter codes
 gen ctrycode=iso_o_num
-merge m:1 ctrycode using iso_codes.dta,keepusing(iso) keep(match) nogen
+merge m:1 ctrycode using "$builddir/04Temp/iso_codes.dta",keepusing(iso) keep(match) nogen
 ren iso iso3_o
 replace ctrycode=iso_d_num
-merge m:1 ctrycode using iso_codes.dta,keepusing(iso) keep(match) nogen
+merge m:1 ctrycode using "$builddir/04Temp/iso_codes.dta",keepusing(iso) keep(match) nogen
 ren iso iso3_d
 
 *Ensure distict entries
