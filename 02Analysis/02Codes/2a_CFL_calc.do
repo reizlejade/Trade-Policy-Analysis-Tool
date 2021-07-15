@@ -6,7 +6,7 @@ clear all
 
 *Setting some parameters
 
-local itpd itpd3                                          // SET the desired mapping
+local itpd itpd2                                          // SET the desired mapping
 local baseyr=2016
 
 
@@ -44,8 +44,34 @@ drop id
 save "$anlysdir/01Input/cfl_1.dta", replace
 
 timer off 1
-
 timer list
+
+********************************************************************************
+****				Counterfactual # 2- RCEP					****
+********************************************************************************
+
+use year iso3_d iso3_o itpd_id tariff using "$builddir/04Temp/tariff_byitpd.dta",clear
+
+keep if (inlist(iso3_o,"AUS","BRN","KHM","CHN","IDN","JPN","LAO","MYS","MMR")|inlist(iso3_o,"NZL","PHL","KOR","SGP","THA","VNM"))&(inlist(iso3_d,"AUS","BRN","KHM","CHN","IDN","JPN","LAO","MYS","MMR")|inlist(iso3_d,"NZL","PHL","KOR","SGP","THA","VNM"))
+
+bysort itpd_id iso3_d iso3_o ( year): gen tariff_lastnmyr = year[_N]
+
+
+keep if year==tariff_lastnmyr      //take the latest tariff data as baseline
+
+
+*Reduce tariffs to zero for all bilateral trade among RCEP members
+gen tariff_bline=tariff
+gen tariff_cfl=0
+
+*Make sure there are no duplicates
+egen id=concat(iso3_o iso3_d itpd_id)
+duplicates drop id,force
+drop id 
+
+keeporder iso3_d iso3_o itpd_id tariff_bline tariff_cfl
+save "$anlysdir/01Input/cfl_2.dta", replace
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ***	        GRAPHS-Plot tariff baseline v tariff counterfactual       		****
