@@ -4,18 +4,17 @@
 
 
 ********************************************************************************
-****	Calculate tariffs under Counterfactual # 1- US-PRC trade war     *******
+****				Calculate tariffs under Counterfactuals 		    *******
 ********************************************************************************
 
-*do "$anlysdir/02Codes/2a_CFL_calc.do"                                    // run this intermediate Do file to add other counterfactuals
-
+do "$anlysdir/02Codes/2a_CFL_calc.do"                                    // run this intermediate Do file to add other counterfactuals
 
 
 ********************************************************************************
 ***	                        Square the Dataset  	       	               	****
 ********************************************************************************
 
-*do "$anlysdir/02Codes/2b_Squaring_Trade_Flows.do"                       // run this intermediate Do file to extrapolate domestic flows in base year
+do "$anlysdir/02Codes/2b_Squaring_Trade_Flows.do"                       // run this intermediate Do file to extrapolate domestic flows in base year
 
 
 ********************************************************************************
@@ -130,7 +129,6 @@ timer list 1
 }
 }
 
-*local currdate: di %tdDNCY daily("$S_DATE", "DMY")          // to keep track when the results are generated
 keeporder itpd_id iso3* d_*
 save "$anlysdir/03Output/CFL_results",replace
 
