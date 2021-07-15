@@ -1,31 +1,82 @@
 
+
 ////////////////////////////////////////////////////////////////////////////////
 ****			    PE impact on US and PRC-All sectors    	             	****
 ////////////////////////////////////////////////////////////////////////////////
 
-*Load results for USA-PRC pairs only  
-use if (iso3_o=="CHN"&iso3_d=="USA")|(iso3_o=="USA"&iso3_d=="CHN") using "$anlysdir/03Output/CFL_results",clear
-keeporder iso3_o itpd_id d_trade_PEeffect_GC 
+use iso3_o itpd_id trade_bline PEimp_lvl* if (inlist(iso3_o,"AUS","BRN","KHM","CHN","IDN","JPN","LAO","MYS","MMR")|inlist(iso3_o,"NZL","PHL","KOR","SGP","THA","VNM"))&(!mi(PEimp_lvl_GC)|!mi(PEimp_lvl_GC2)|!mi(PEimp_lvl_FE))&itpd_id<=153 using  "$anlysdir/04Temp/PEimpact_byexpsec",clear
 
-reshape wide d_trade_PEeffect_GC,i(itpd_id) j(iso3_o) string
-ren (d_trade_PEeffect_GCCHN d_trade_PEeffect_GCUSA) (PE_effect_CHN PE_effect_USA) 
 
-replace PE_effect_USA= -PE_effect_USA         //to create mirror bars
 
-labvars itpd_id PE_effect_CHN PE_effect_USA "ITPD sector" "Impact on PRC exports" "Impact on USA exports"
-twoway bar PE_effect_CHN itpd_id, horizontal xtitle("% change in exports") || bar PE_effect_USA itpd_id, horizontal legend(size(*0.75))
+merge m:1 itpd_id using "$builddir/04Temp/broadsec_agg.dta",keep(match) nogen
+collapse (sum) trade_bline* PEimp_lvl* ,by(adbmriot_sec adbmriot_seccode iso3_o )
 
-graph export "$anlysdir/03Output/PEimpact.png",replace
+
+replace trade_bline=trade_bline/1000                    //express in USD Bln
+
+local model GC GC2 FE
+foreach m in `model'{
+	replace PEimp_lvl_`m'=PEimp_lvl_`m'/1000            //express in USD Bln
+	gen PEimp_pct_`m'=100*(PEimp_lvl_`m'/trade_bline)	
+}
+
+
+
+*****Broadsec level
+
+local lvl_title ytitle("Impact on exports (USD Bn)",size(small)) 
+local pct_title ytitle("Impact on exports (%)",size(small)) 
+
+levelsof adbmriot_sec,local(sec)
+local unit lvl pct
+local model GC GC2 FE
+
+foreach u in `unit'{
+foreach m in `model'{
+foreach s in `sec'{
+
+graph hbar PEimp_`u'_`m' if  adbmriot_sec=="`s'"  ,over(iso3_o) title( "`s'" ,size(small)) asyvars ``u'_title'  blabel(bar, format(%12.2fc) gap(*.5) size(vsmall))
+graph export "$anlysdir/03Output/PEimp_`u'_`m'_`s'.png",as(png) replace
+
+}
+}
+}
+
+/*
+
+For Use case #1-US-PRC trade war
+
+*use iso3_o itpd_id trade_bline PEimp_lvl* if (iso3_o=="CHN"|iso3_o=="USA")&(!mi(PEimp_lvl_GC)|!mi(PEimp_lvl_GC2)|!mi(PEimp_lvl_FE))&itpd_id<=153 using  "$anlysdir/04Temp/PEimpact_byexpsec",clear
+
+local lvl_title ytitle("Impact on exports (USD Bn)",size(small)) 
+local pct_title ytitle("Impact on exports (%)",size(small)) 
+
+local unit lvl pct
+local model GC GC2 FE
+
+
+foreach u in `unit'{
+foreach m in `model'{
+
+graph hbar PEimp_`u'_`m',over(iso3_o) by(adbmriot_sec) asyvars ``u'_title'  blabel(bar, format(%12.1fc) gap(*.5) size(vsmall))
+
+*graph hbar PEimp_`u'_`m',over(iso3_o) over( adbmriot_sec ,label(labsize(vsmall))) asyvars ``u'_title'  blabel(bar, format(%12.1fc) gap(*.5) size(vsmall))
+graph export "$anlysdir/03Output/PEimp_`u'_`m'.png",as(png) replace
+
+}
+}
+*/
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
 ****				           GE effects by sector     		           	****
 ////////////////////////////////////////////////////////////////////////////////
-use "$anlysdir/03Output/CFL_results_`currdate'",clear
+use "$anlysdir/03Output/CFL_results",clear
 
-collapse (mean)d_welfare_GC,by( iso3_o itpd_id)
-gen d_welfare_clean= d_welfare_GC
-replace d_welfare_clean=round( d_welfare_clean,.00001)
+collapse (mean)d_welfare_GC2,by( iso3_o itpd_id)
+gen d_welfare_clean= d_welfare_GC2
+replace d_welfare_clean=round( d_welfare_clean,.0000001)
 
 gen xpos=-abs( d_welfare_clean)
 
@@ -46,7 +97,7 @@ foreach s in `validsec'{
 	levelsof ranku, local(var2values)
 
 	twoway bar d_welfare_clean ranku, xtitle("economies w/ most impact") ytitle("% change in welfare") xlabel(`var2values', valuelabels) title("`secname'")
-	graph export "$anlysdir/03Output/GEimpact_`s'.png",replace
+	graph export "$anlysdir/03Output/GEimpact_`s'.png",as(png) replace
 }
 
 
