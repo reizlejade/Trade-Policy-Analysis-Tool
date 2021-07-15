@@ -35,6 +35,7 @@ ssc inst labutil
 ssc inst labutil2
 ssc inst sepscatter
 ssc install rsource
+ssc install asgen
 
 */
 
