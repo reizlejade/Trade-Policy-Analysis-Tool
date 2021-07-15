@@ -1,6 +1,6 @@
-* R.Platitas, May 2021
+* R.Platitas, July 2021
 * File calculates the elasticities of tariffs and other gravity variables 
-* Written in Stata 14 on Windows 10
+* Written in Stata 15 on Windows 10
 
 
 
@@ -8,8 +8,8 @@
 ****				Preparing Relevant Data Inputs           				****
 ********************************************************************************
 
-local models GC FE                      // specifications: GC-using gravity controls+imp-time,exp-time FEs; FE-using imp-time,exp-time,imp-exp FEs
-
+*Specifications: GC-using gravity controls+imp-time,exp-time FEs;GC2-GC+control for home bias effects and domestic trade costs; FE-using imp-time,exp-time,imp-exp FEs
+local models GC GC2 FE                      
 
 *Set desired gravity variables
 *(See available variables here: https://www.usitc.gov/data/gravity/dynamic_gravity_technical_documentation_v1_00_1.pdf)
@@ -18,7 +18,7 @@ local plcy agree_fta agree_cu member_eu_joint
                                                                                        
 *Generate repositories for elasticities and fixed effects from PPML estimation
 foreach file in Elast FE{
-	foreach spec in FE GC{
+	foreach spec in `models'{
 		clear
 		save "$anlysdir/04Temp/Temp_`file'_`spec'", replace emptyok
 	}
@@ -30,11 +30,11 @@ foreach file in Elast FE{
 ********************************************************************************
 
 forval x=1/153{  
-	*if inlist(`x',5,8,14,15,17,18,154,155,161,167,168) continue     // sectors without intra-national trade for any given year
+	*if inlist(`x',5,8,14,15,17,18,154,155,161,167,168) continue     // sectors without intra-national trade for any given year, not relevant here since you can estimate without domestic flows
 
 *Trim MAcMap tariffs data for merging later
 
-	use if itpd_id==`x' & year<2017 using  "$builddir/03Output/tariff_byitpd.dta",clear
+	use if itpd_id==`x' & year<2017 using  "$builddir/04Temp/tariff_byitpd.dta",clear
 	save "$builddir/04Temp/tariff_sec.dta",replace
 
 
@@ -54,6 +54,11 @@ forval x=1/153{
 	egen imp_time=group(iso3_d year)
 	egen imex	= group(iso3_d iso3_o)
 
+*Create control for home bias effect and domestic trade costs (proxied by internal distance)
+gen SMCTRY=1 if iso3_d==iso3_o
+replace SMCTRY=0 if SMCTRY==.
+gen ln_DIST_INTRA=ln_dist*SMCTRY
+
 
 *A. PPML estimation w/ Gravity variables + Imp-time and Exp-time FEs
 	timer on 1
@@ -63,40 +68,65 @@ forval x=1/153{
 	timer list 1
 	sca def time = r(t1)
 	cap gen cons = _b[_cons]
-	cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "$anlysdir/04Temp/Temp_FE_GC_`x'.csv",comma        
+	cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "$anlysdir/04Temp/Temp_FE_GC_`x'.csv",comma replace       
 	cap regsave ln_dist `grav_exdist' `plcy' ln_tar using "$anlysdir/04Temp/Temp_Elast_GC", tstat pval ci level(95) addlabel(itpd_id, `x', time, `=scalar(time)') append	
+	gen spec="GC"
+	
 
-
-*B. PPML estimation w/ Complete set of FEs
+*B. PPML estimation w/ Gravity variables + Imp-time and Exp-time FEs + controls for home-bias effects and domestic trade costs
 	timer on 2
-	ppmlhdfe trade `plcy' ln_tar,absorb(exp_time imp_time imex,savefe) vce(cluster imex) 
+	cap ppmlhdfe trade `grav_exdist' `plcy' ln_tar SMCTRY ln_DIST_INTRA, absorb(exp_time imp_time,savefe) vce(cluster imex)
 	timer off 2
 	di `x'
 	timer list 2
 	sca def time = r(t2)
 	cap gen cons = _b[_cons]
-	cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "$anlysdir/04Temp/Temp_FE_FE_`x'.csv",comma    
+	cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "$anlysdir/04Temp/Temp_FE_GC2_`x'.csv",comma replace       
+	cap regsave `grav_exdist' `plcy' ln_tar SMCTRY ln_DIST_INTRA using "$anlysdir/04Temp/Temp_Elast_GC2", tstat pval ci level(95) addlabel(itpd_id, `x', time, `=scalar(time)') append	
+
+
+*C. PPML estimation w/ Complete set of FEs
+	timer on 3
+	cap ppmlhdfe trade `plcy' ln_tar,absorb(exp_time imp_time imex,savefe) vce(cluster imex) 
+	timer off 3
+	di `x'
+	timer list 3
+	sca def time = r(t3)
+	cap gen cons = _b[_cons]
+	cap outsheet year itpd_id iso3_o iso3_d *hdfe* cons using "$anlysdir/04Temp/Temp_FE_FE_`x'.csv",comma replace   
 	cap regsave `plcy' ln_tar using "$anlysdir/04Temp/Temp_Elast_FE", tstat pval ci level(95) addlabel(itpd_id, `x', time, `=scalar(time)') append	
 } 
 
 
-*Generate plots of estimated elasticities for all time-varying RHS variables
+*****Compile all coeffs******
+clear
+save "$anlysdir/04Temp/Temp_Elast_All", replace emptyok
 
-use var itpd_id coef pval using  "$anlysdir/04Temp/Temp_Elast_GC",clear
-ren (coef pval) (coef_GC pval_GC)
+foreach spec in `models'{
+	use "$anlysdir/04Temp/Temp_Elast_`spec'",clear
+	gen model="`spec'"
+	keeporder model var itpd_id coef pval N
+	append using "$anlysdir/04Temp/Temp_Elast_All"
+	save "$anlysdir/04Temp/Temp_Elast_All",replace 
+}
 
-merge 1:1 var itpd_id using "$anlysdir/04Temp/Temp_Elast_FE",keepusing(coef pval) nogen
-merge m:1 itpd_id using "$projdir/04Misc/itpd_sec",keep(master match)nogen
 
-ren (coef pval) (coef_FE pval_FE)
+
+////////////////////////////////////////////////////////////////////////////////
+***	                GRAPHS-plots of estimated elasticities for              ****
+***                      all time-varying RHS variables  	       	    	****
+////////////////////////////////////////////////////////////////////////////////
+graph drop _all
+
+use "$anlysdir/04Temp/Temp_Elast_All",clear
+gen sig="significant at 5%" if pval<=0.05
+replace sig="not significant" if pval>0.05
+
+reshape wide coef pval N sig,i(var itpd_id) j(model) string
 
 foreach s in `models'{
-	gen sig_`s'="not significant" if pval_`s'>0.05
-	replace sig_`s'="significant at 5%" if pval_`s'<=0.05
-	replace sig_`s'="significant at 1%" if pval_`s'<=0.01
-
-	bysort var:egen rank`s'=rank(coef_`s')
-	labvars coef_`s' itpd_id rank`s' "Trade elasticity-`s'" "Sector" "Industry"
+	bysort var:egen rank`s'=rank(coef`s')
+	labvars coef`s' itpd_id rank`s' "Trade elasticity-`s'" "Sector" "Industry"
 }
 
 
@@ -108,14 +138,14 @@ replace var="EU" if var=="member_eu_joint"
 replace var="Tariff" if var=="ln_tar"
 
 
+
 foreach v in FTA CU EU Tariff{
 	foreach s in `models'{
-		sepscatter coef_`s' rank`s' if var=="`v'",sep(sig_`s') legend(size(*0.65)) name(`v'_`s')
+		sepscatter coef`s' rank`s' if var=="`v'",sep(sig`s') legend(size(*0.65)) saving(`v'_`s',replace) name(`v'_`s') 
 	}
-	grc1leg `v'_GC `v'_FE,rows(2) legendfrom(`v'_GC) title("`v'")
+	grc1leg `v'_GC `v'_GC2 `v'_FE,rows(3) legendfrom(`v'_GC) title("`v'") ycommon iscale(*.7)
 	graph save "$anlysdir/03Output/Elast_`v'.png",replace
 }
-
 
 
 
