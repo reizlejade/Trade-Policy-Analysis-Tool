@@ -1,11 +1,12 @@
+#install.packages("dplyr")
 #install.packages("concordance")
-
+#install.packages("foreign")
+#install.packages("haven")
 
 library(dplyr)
 library(concordance)
 library(foreign)
 library(haven)
-
 
 rm(list=ls())
 
@@ -20,7 +21,6 @@ if (uname=='rjcpl'){
 
 setwd(dataOutputDir1)
 
-
 #Produce concordance of HS versions
 hs_ver<-list(hs5_hs4,hs4_hs3,hs3_hs2,hs2_hs1,hs1_hs0)
 
@@ -28,7 +28,6 @@ for (i in 1:5){
   nam<-paste("mat",i,sep="_")
   assign(nam,data.frame(hs_ver[i]))
 }
-
 
 hs_allver<-full_join(mat_1,mat_2,by='HS4_6d')
 hs_allver<-full_join(hs_allver,mat_3,by='HS3_6d')
@@ -89,14 +88,9 @@ hsdesc=hs_desc
 isicver=isic4_isic3
 
 #Outputs to be used by Stata
-
-
-
 write_dta(hsdesc,"hs_desc.dta")
 write_dta(hs_convrtr,"hs_convrtr.dta")
 write_dta(hs_isicf,"hs_isic.dta")
 write_dta(hs_isicf2,"hs_isic2.dta")
 write_dta(isicver,"isic4_isic3.dta")
-
-
 
