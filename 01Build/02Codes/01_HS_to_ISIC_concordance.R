@@ -1,3 +1,11 @@
+# Install concordance_2.1.0 manually (get files to paste manually in the local R library folder)
+
+# Also attempted, but failed
+#install.packages("devtools")
+#library(devtools)
+#install_github("insongkim/concordance", dependencies=TRUE)
+#install.packages("concordance") # This installs concordance_2.0.0
+
 #install.packages("dplyr")
 #install.packages("concordance")
 #install.packages("foreign")
