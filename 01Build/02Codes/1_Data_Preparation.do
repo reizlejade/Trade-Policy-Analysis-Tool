@@ -3,7 +3,7 @@
 * Written in Stata 15.1 on Windows 10, tested on MacOS Catalina (4 Aug. 2021)
      
 
-* Set working directory + desired mapping (@Reizle > Please specify desired mapping for what)
+* Set working directory 
 cd "$builddir/01Input"
 local itpd itpd2
 
@@ -13,7 +13,7 @@ ITPD resulted from three-way merging of
 		HS --> FAOSTAT Commodity List (FCL) --> ITPD sector (for Agriculture), and
 		HS --> ISIC Rev.4 --> ITPD sector (for Mining, and Manufacturing)
 ITPD2-improved on 'ITPD' mapping by manually filling out the sectors of unmapped HS based on product description & sectors of nearby products 
-* All of the above was done in 0_HS_to_ITPD_mapping.do (@Reizle: Is that correct?)
+* All of the above was done in 0_HS_to_ITPD_mapping.do 
 */
 
 
@@ -140,7 +140,7 @@ foreach x of local region {
 
 * Compute mean exports + total regional exports by sector (@Reizle > Is this correct? Please briefly explain why you are doing this)
 collapse (mean)sectrade_tot (sum)trade_*,by(itpd_id)
-save "$builddir/04Temp/agg_trade.dta"
+save "$builddir/04Temp/agg_trade.dta",replace
 
 
 ********************************************************************************
@@ -173,6 +173,8 @@ timer off 2
 ********************************************************************************
 timer on 3
 
+clear
+
 * Unzip ITC tariff data (unzippinng files > 4GB requires Stata >= 15.1)
 fs bulkdownload1.zip    
 foreach f in `r(files)'{    
@@ -188,6 +190,10 @@ erase `a'
 * Generate temporary file
 tempfile masterfile
 save `masterfile',replace empty
+
+*NOTE: Tempfile becomes really large, if you don't have enough space in your machine, you may need to redirect the tempfile default folder. 
+*See FAQs https://www.stata.com/support/faqs/data-management/statatmp-environment-variable/
+
 
 * Prepare each individual .csv reporting tariff data (Note: This bit takes several hours)
 fs *agr.txt
@@ -211,7 +217,7 @@ foreach f in `r(files)'{
 
 	* Aggregate tariffs from ~5,300 6-digit HS codes to 153 ITPD sectors
 	* Method: take the simple average of all the HS codes matched to a sinngle ITPD sector
-	* > For alternative methods, see Documentationn III.A (@Reizle > Please specify in which document this is, including URL)
+	* > For alternative methods, see Documentation III.A (Internal document)- https://asiandevbank-my.sharepoint.com/personal/rplatitas_consultant_adb_org/Documents/ERMR_Trade%20Policy%20Analysis%20Tool/03Documentation/BUILDING%20A%20THEORY-CONSISTENT%20TRADE%20POLICY%20ANALYSIS%20TOOL.docx?web=1
 	collapse (mean) tariff=ave_applied,by(year iso_o_num iso_d_num `itpd')
 	
 	* Convert tariff to %
@@ -226,10 +232,9 @@ foreach f in `r(files)'{
 	merge m:1 ctrycode using "$builddir/04Temp/iso_codes.dta",keepusing(iso) keep(match) nogen
 	ren iso iso3_d
 
-	* Ensure distinct entries (@Reizle > Could you please briefly elaborate?)
-	egen id=concat(year iso3_o iso3_d itpd_id)
-	duplicates drop id,force
-	drop id
+	* Remove any duplicates if any
+	duplicates drop year iso3_o iso3_d itpd_id,force
+	
 
 	* Add to the tariff data prepared in the previous iteration of the loop
 	append using  `masterfile'
@@ -248,9 +253,9 @@ timer off 3
 ****					Check the duration of each step				   		****
 ********************************************************************************
 
-** The durations below are for Jules' MacBook Pro (4 Aug 2021 test)
+** The durations below are for Jules' MacBook Pro (4 Aug 2021 test) // Reizle's HuaweiMate D14 (7 Aug 2021 test)
 timer list
-* Timer 1 (Trade, ITPD) 		= 559 sec (9 min 30 sec)
-* Timer 2 (Gravity, USITC) 		= 23 sec
-* Timer 3 (Tariffs, ITC MAcMap) = 43,296 sec (12 hours)
+* Timer 1 (Trade, ITPD) 		= 559 sec (9 min 30 sec)        // 916 sec (15 min 16 sec)
+* Timer 2 (Gravity, USITC) 		= 23 sec                       //   29 sec
+* Timer 3 (Tariffs, ITC MAcMap) = 43,296 sec (12 hours)        //   59487 (16 hours 30 mins)
 
