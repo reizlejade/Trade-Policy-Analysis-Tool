@@ -1,5 +1,5 @@
 # Trade Policy Analysis Tool
-##### Author: Reizle Platitas  (Dec 2021) 
+##### Author: Reizle Platitas  (April 2021) 
 ###### [GitHub][myGH]  | [Project Folder][maindir] 
 ---
 #### About
